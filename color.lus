@@ -45,6 +45,9 @@ local function detect()
     if no ~= nil and no ~= "" then
         return false
     end
+    if io.stdout.isatty and not io.stdout:isatty() then
+        return false
+    end
     local term = getenv("TERM")
     if term == nil or term == "dumb" then
         return false
@@ -58,7 +61,8 @@ local enabled = detect()
 ---
 --- The default comes from the environment. `FORCE_COLOR` set to anything
 --- other than `0` or `false` turns colors on. Otherwise a non-empty
---- `NO_COLOR` turns them off, and so does a `TERM` that is unset or `dumb`.
+--- `NO_COLOR` turns them off, and so does a standard output that is not a
+--- terminal or a `TERM` that is unset or `dumb`.
 --- Reading the environment requires the `env` permission. Without it,
 --- colors are off until `color.enable` turns them on.
 --- @return boolean
