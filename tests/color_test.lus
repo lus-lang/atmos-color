@@ -1,0 +1,49 @@
+local ROOT = string.match(TEST_DIR, "^(.*)[/\\][^/\\]*$")
+pledge("load", "fs:read=" .. ROOT .. "/*")
+package.path = ROOT .. "/?.lus;" .. package.path
+
+local color = require("color")
+color.enable(true)
+
+local function single_style_test()
+    assert(color.red("x") == "\27[31mx\27[39m")
+    assert(color.bold("x") == "\27[1mx\27[22m")
+end
+
+local function chain_test()
+    assert(color.bold.red("x") == "\27[1;31mx\27[39;22m")
+    assert(color.bg_blue.white.underline("x") == "\27[44;37;4mx\27[24;39;49m")
+end
+
+local function nesting_test()
+    local text = color.red("a " .. color.blue("b") .. " c")
+    assert(text == "\27[31ma \27[34mb\27[39m\27[31m c\27[39m")
+end
+
+local function true_color_test()
+    assert(color.hex("#ff8800")("x") == "\27[38;2;255;136;0mx\27[39m")
+    assert(color.hex("#f80")("x") == "\27[38;2;255;136;0mx\27[39m")
+    assert(color.ansi256(208)("x") == "\27[38;5;208mx\27[39m")
+    assert(color.bold.hex("#000")("x") == "\27[1;38;2;0;0;0mx\27[39;22m")
+    assert(not catch color.hex("#zz0000"))
+end
+
+local function strip_and_width_test()
+    local text = color.bold.green("héllo")
+    assert(color.strip(text) == "héllo")
+    assert(color.width(text) == 5)
+end
+
+local function disable_test()
+    color.enable(false)
+    assert(color.red("x") == "x")
+    assert(color.bold.red(5) == "5")
+    color.enable(true)
+end
+
+local function default_without_env_test()
+    -- The test file has no env permission, so detection turns colors off.
+    package.loaded.color = nil
+    local fresh = require("color")
+    assert(fresh.enabled() == false)
+end
