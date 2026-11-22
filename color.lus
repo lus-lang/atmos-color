@@ -1,16 +1,16 @@
 --- Styles terminal text with ANSI escape sequences.
 ---
 --- Every style is a callable table. `color.red("text")` wraps the text in
---- the codes of red, and styles chain, as in `color.bold.red("error")`.
---- Output is plain when the environment asks for it, so the same program
---- writes clean text to a file or a pipe.
+--- the codes of red. Styles chain, as in `color.bold.red("error")`. When the
+--- environment turns colors off, every style returns the text unchanged, so
+--- the same program writes clean text to a file or a pipe.
 ---
 --- @package color
---- @version 0.1.0
+--- @version 1.0.0
 --- @lus 2.0
 --- @license 0BSD
 --- @repository https://github.com/lus-lang/atmos-color
---- @permission env:read Reads `NO_COLOR`, `FORCE_COLOR`, and `TERM` to decide whether to write colors.
+--- @permission env:read Reads `NO_COLOR`, `FORCE_COLOR`, and `TERM`, which turn colors on or off.
 
 local M = {}
 
@@ -60,11 +60,11 @@ local enabled = detect()
 --- Returns true if styles write escape codes.
 ---
 --- The default comes from the environment. `FORCE_COLOR` set to anything
---- other than `0` or `false` turns colors on. Otherwise a non-empty
---- `NO_COLOR` turns them off, and so does a standard output that is not a
---- terminal or a `TERM` that is unset or `dumb`.
---- Reading the environment requires the `env` permission. Without it,
---- colors are off until `color.enable` turns them on.
+--- other than `0` or `false` turns colors on. Otherwise colors are off when
+--- `NO_COLOR` is set and not empty, when standard output is not a terminal,
+--- or when `TERM` is unset or `dumb`. Reading the environment requires the
+--- `env:read` permission. Without it, colors are off until `color.enable`
+--- turns them on.
 --- @return boolean
 function M.enabled()
     return enabled
@@ -87,15 +87,15 @@ local function apply(style, text)
     if not enabled or #style.opens == 0 then
         return text
     end
-    local open = "\27[" .. table.concat(style.opens, ";") .. "m"
+    local open = "\27[" .. `$(table.concat(style.opens, ";"))m`
     local parts = {}
     for i = #style.closes, 1, -1 do
         parts[#parts + 1] = style.closes[i]
     end
-    local close = "\27[" .. table.concat(parts, ";") .. "m"
+    local close = "\27[" .. `$(table.concat(parts, ";"))m`
     -- A nested style that closes inside the text reopens the outer one.
     for _, code in ipairs(style.closes) do
-        text = text:gsub("\27%[" .. code .. "m", "\27[" .. code .. "m" .. open)
+        text = text:gsub("\27%[" .. `$(code)m`, "\27[" .. `$(code)m$open`)
     end
     return open .. text .. close
 end
@@ -179,6 +179,8 @@ local function parse_hex(hex)
 end
 
 --- Returns a style for a color written as `#rrggbb` or `#rgb`.
+---
+--- The leading `#` is optional. Any other string raises an error.
 --- @param hex string The color.
 --- @return table
 function M.hex(hex)
@@ -186,6 +188,8 @@ function M.hex(hex)
 end
 
 --- Returns a background style for a color written as `#rrggbb` or `#rgb`.
+---
+--- The leading `#` is optional. Any other string raises an error.
 --- @param hex string The color.
 --- @return table
 function M.bg_hex(hex)

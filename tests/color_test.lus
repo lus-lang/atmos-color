@@ -1,6 +1,6 @@
 local ROOT = string.match(TEST_DIR, "^(.*)[/\\][^/\\]*$")
-pledge("load", "fs:read=" .. ROOT .. "/*")
-package.path = ROOT .. "/?.lus;" .. package.path
+pledge("load", `fs:read=$ROOT/*`)
+package.path = `$ROOT/?.lus;$(package.path)`
 
 local color = require("color")
 color.enable(true)
@@ -16,7 +16,7 @@ local function chain_test()
 end
 
 local function nesting_test()
-    local text = color.red("a " .. color.blue("b") .. " c")
+    local text = color.red(`a $(color.blue("b")) c`)
     assert(text == "\27[31ma \27[34mb\27[39m\27[31m c\27[39m")
 end
 
