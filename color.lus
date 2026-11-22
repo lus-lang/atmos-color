@@ -118,8 +118,7 @@ Style.__call = function(style, text)
 end
 
 Style.__index = function(style, key)
-    local s = STYLES[key]
-    if s then
+    if s = STYLES[key] then
         local chained = extend(style, s[1], s[2])
         rawset(style, key, chained)
         return chained
