@@ -87,15 +87,15 @@ local function apply(style, text)
     if not enabled or #style.opens == 0 then
         return text
     end
-    local open = "\27[" .. `$(table.concat(style.opens, ";"))m`
+    local open = `\27[$(table.concat(style.opens, ";"))m`
     local parts = {}
     for i = #style.closes, 1, -1 do
         parts[#parts + 1] = style.closes[i]
     end
-    local close = "\27[" .. `$(table.concat(parts, ";"))m`
+    local close = `\27[$(table.concat(parts, ";"))m`
     -- A nested style that closes inside the text reopens the outer one.
     for _, code in ipairs(style.closes) do
-        text = text:gsub("\27%[" .. `$(code)m`, "\27[" .. `$(code)m$open`)
+        text = text:gsub(`\27%[$(code)m`, `\27[$(code)m$open`)
     end
     return open .. text .. close
 end
