@@ -5,6 +5,16 @@
 --- environment turns colors off, every style returns the text unchanged, so
 --- the same program writes clean text to a file or a pipe.
 ---
+--- The following program prints an error label in bold red and a warning
+--- label in orange.
+---
+--- ```lus nocheck
+--- local color = require("https://atmosp.here/2.0/color.lus")
+---
+--- print(`$(color.bold.red("error:")) file not found`)
+--- print(`$(color.hex("#ff8800")("warning:")) disk almost full`)
+--- ```
+---
 --- @package color
 --- @version 1.0.0
 --- @lus 2.0
@@ -16,42 +26,70 @@ local M = {}
 
 -- Each style is `{ open, close }` as SGR parameters.
 local STYLES = {
-    reset = { 0, 0 }, bold = { 1, 22 }, dim = { 2, 22 }, italic = { 3, 23 },
-    underline = { 4, 24 }, inverse = { 7, 27 }, hidden = { 8, 28 }, strike = { 9, 29 },
-    black = { 30, 39 }, red = { 31, 39 }, green = { 32, 39 }, yellow = { 33, 39 },
-    blue = { 34, 39 }, magenta = { 35, 39 }, cyan = { 36, 39 }, white = { 37, 39 },
-    gray = { 90, 39 }, bright_red = { 91, 39 }, bright_green = { 92, 39 },
-    bright_yellow = { 93, 39 }, bright_blue = { 94, 39 }, bright_magenta = { 95, 39 },
-    bright_cyan = { 96, 39 }, bright_white = { 97, 39 },
-    bg_black = { 40, 49 }, bg_red = { 41, 49 }, bg_green = { 42, 49 }, bg_yellow = { 43, 49 },
-    bg_blue = { 44, 49 }, bg_magenta = { 45, 49 }, bg_cyan = { 46, 49 }, bg_white = { 47, 49 },
+    reset = { 0, 0 },
+    bold = { 1, 22 },
+    dim = { 2, 22 },
+    italic = { 3, 23 },
+    underline = { 4, 24 },
+    inverse = { 7, 27 },
+    hidden = { 8, 28 },
+    strike = { 9, 29 },
+    black = { 30, 39 },
+    red = { 31, 39 },
+    green = { 32, 39 },
+    yellow = { 33, 39 },
+    blue = { 34, 39 },
+    magenta = { 35, 39 },
+    cyan = { 36, 39 },
+    white = { 37, 39 },
+    gray = { 90, 39 },
+    bright_red = { 91, 39 },
+    bright_green = { 92, 39 },
+    bright_yellow = { 93, 39 },
+    bright_blue = { 94, 39 },
+    bright_magenta = { 95, 39 },
+    bright_cyan = { 96, 39 },
+    bright_white = { 97, 39 },
+    bg_black = { 40, 49 },
+    bg_red = { 41, 49 },
+    bg_green = { 42, 49 },
+    bg_yellow = { 43, 49 },
+    bg_blue = { 44, 49 },
+    bg_magenta = { 45, 49 },
+    bg_cyan = { 46, 49 },
+    bg_white = { 47, 49 },
     bg_gray = { 100, 49 },
 }
 
 local function getenv(name)
-    local ok, value = catch os.getenv(name)
-    if ok then
+    if ok, value = catch os.getenv(name) then
         return value
     end
+
     return nil
 end
 
 local function detect()
-    local force = getenv("FORCE_COLOR")
-    if force ~= nil then
+    if force = getenv("FORCE_COLOR") then
         return force ~= "0" and force ~= "false"
     end
+
     local no = getenv("NO_COLOR")
+
     if no ~= nil and no ~= "" then
         return false
     end
+
     if io.stdout.isatty and not io.stdout:isatty() then
         return false
     end
+
     local term = getenv("TERM")
+
     if term == nil or term == "dumb" then
         return false
     end
+
     return true
 end
 
@@ -84,30 +122,24 @@ end
 
 local function apply(style, text)
     text = tostring(text)
+
     if not enabled or #style.opens == 0 then
         return text
     end
+
     local open = `\27[$(table.concat(style.opens, ";"))m`
-    local parts = {}
-    for i = #style.closes, 1, -1 do
-        parts[#parts + 1] = style.closes[i]
-    end
-    local close = `\27[$(table.concat(parts, ";"))m`
+    local close = `\27[$(table.concat(style.closes[#style.closes, 1], ";"))m`
+
     -- A nested style that closes inside the text reopens the outer one.
     for _, code in ipairs(style.closes) do
         text = text:gsub(`\27%[$(code)m`, `\27[$(code)m$open`)
     end
-    return open .. text .. close
+
+    return `$open$text$close`
 end
 
 local function extend(style, open, close)
-    local opens, closes = {}, {}
-    for i, v in ipairs(style.opens) do
-        opens[i] = v
-    end
-    for i, v in ipairs(style.closes) do
-        closes[i] = v
-    end
+    local opens, closes = table.clone(style.opens), table.clone(style.closes)
     opens[#opens + 1] = open
     closes[#closes + 1] = close
     return make(opens, closes)
@@ -117,19 +149,32 @@ Style.__call = function(style, text)
     return apply(style, text)
 end
 
+-- The constructors that a chained style also offers, as in `color.bold.hex("#000")`.
+local CONSTRUCTORS = {
+    hex = true,
+    rgb = true,
+    ansi256 = true,
+    bg_hex = true,
+    bg_rgb = true,
+    bg_ansi256 = true,
+}
+
 Style.__index = function(style, key)
     if s = STYLES[key] then
         local chained = extend(style, s[1], s[2])
         rawset(style, key, chained)
         return chained
     end
-    local method = M[key]
-    if key == "hex" or key == "rgb" or key == "ansi256" or key == "bg_hex" or key == "bg_rgb" or key == "bg_ansi256" then
+
+    if CONSTRUCTORS[key] then
+        local method = M[key]
+
         return function(...)
             local inner = method(...)
             return extend(style, inner.opens[1], inner.closes[1])
         end
     end
+
     return nil
 end
 
@@ -139,14 +184,14 @@ local root = make({}, {})
 --- @param n integer The color number, from 0 to 255.
 --- @return table
 function M.ansi256(n)
-    return make({ "38;5;" .. math.floor(n) }, { 39 })
+    return make({ `38;5;$(math.floor(n))` }, { 39 })
 end
 
 --- Returns a background style for a color of the 256-color palette.
 --- @param n integer The color number, from 0 to 255.
 --- @return table
 function M.bg_ansi256(n)
-    return make({ "48;5;" .. math.floor(n) }, { 49 })
+    return make({ `48;5;$(math.floor(n))` }, { 49 })
 end
 
 --- Returns a style for a 24-bit color.
@@ -169,12 +214,15 @@ end
 
 local function parse_hex(hex)
     local h = hex:gsub("^#", "")
+
     if #h == 3 then
         h = h:gsub(".", "%0%0")
     end
+
     if not h:match("^%x%x%x%x%x%x$") then
         error(`invalid hex color '$hex'`, 3)
     end
+
     return tonumber(h:sub(1, 2), 16), tonumber(h:sub(3, 4), 16), tonumber(h:sub(5, 6), 16)
 end
 
